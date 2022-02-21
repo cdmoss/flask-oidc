@@ -8,6 +8,9 @@ from authlib.integrations.sqla_oauth2 import (
 from authlib.oauth2.rfc6749.grants import (
     AuthorizationCodeGrant as _AuthorizationCodeGrant,
 )
+
+from authlib.oauth2.rfc7636 import CodeChallenge
+
 from authlib.oidc.core.grants import (
     OpenIDCode as _OpenIDCode,
     OpenIDImplicitGrant as _OpenIDImplicitGrant,
@@ -71,17 +74,16 @@ class AuthorizationCodeGrant(_AuthorizationCodeGrant):
     def authenticate_user(self, authorization_code):
         return User.query.get(authorization_code.user_id)
 
-    def save_authorization_code(self, code, request):
-        code_challenge = request.data.get('code_challenge')
-        code_challenge_method = request.data.get('code_challenge_method')
+    def save_authorization_code(self, code, request): 
+        user = User.query.filter_by(username=request.form['username']).first()
         auth_code = OAuth2AuthorizationCode(
             code=code,
-            client_id=request.client.client_id,
-            redirect_uri=request.redirect_uri,
-            scope=request.scope,
-            user_id=request.user.id,
-            code_challenge=code_challenge,
-            code_challenge_method=code_challenge_method,
+            client_id=request.args.get('client_id'),
+            redirect_uri=request.args.get('redirect_uri'),
+            scope=request.args.get('scope'),
+            user_id=user.id,
+            code_challenge=request.args.get('code_challenge'),
+            code_challenge_method=request.args.get('code_challenge_method'),
         )
         auth_code.save()
         return auth_code
@@ -138,10 +140,9 @@ def config_oauth(app):
 
     # support all openid grants
     authorization.register_grant(AuthorizationCodeGrant, [
-        OpenIDCode(require_nonce=True),
+        OpenIDCode(require_nonce=False),
+        CodeChallenge(required=True),
     ])
-    authorization.register_grant(ImplicitGrant)
-    authorization.register_grant(HybridGrant)
 
     # protect resource
     bearer_cls = create_bearer_token_validator(db.session, OAuth2Token)

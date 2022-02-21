@@ -1,7 +1,7 @@
 import time
 from flask import Blueprint, request, session
 from flask import render_template, redirect, jsonify
-from werkzeug.security import gen_salt
+from werkzeug.security import gen_salt, check_password_hash, generate_password_hash
 from authlib.integrations.flask_oauth2 import current_token
 from authlib.oauth2 import OAuth2Error
 from .models import db, User, OAuth2Client
@@ -10,23 +10,16 @@ from .oauth2 import authorization, require_oauth, generate_user_info
 
 bp = Blueprint(__name__, 'home')
 
-@bp.route('/', methods=('GET', 'POST'))
+@bp.route('/login', methods=('GET', 'POST'))
 def home():
     if request.method == 'POST':
         username = request.form.get('username')
-        user = User.query.filter_by(username=username).first()
-        if not user:
-            user = User(username=username)
-            db.session.add(user)
-            db.session.commit()
-        session['id'] = user.id
-        return redirect('/')
-    user = current_user()
-    if user:
-        clients = OAuth2Client.query.filter_by(user_id=user.id).all()
-    else:
-        clients = []
-    return render_template('home.html', user=user, clients=clients)
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username)
+        if not check_password_hash(user.password, password) or not user:
+            return render_template('login.html', error_message='Invalid username or password')        
+        
+        return authorization.create_authorization_response(grant_user=user)
 
 
 def split_by_crlf(s):
