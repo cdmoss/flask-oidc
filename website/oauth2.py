@@ -54,6 +54,7 @@ def create_authorization_code(client, grant_user, request):
 
 
 class AuthorizationCodeGrant(_AuthorizationCodeGrant):
+    TOKEN_ENDPOINT_AUTH_METHODS = ['client_secret_basic', 'client_secret_post', 'none']
     def create_authorization_code(self, client, grant_user, request):
         return create_authorization_code(client, grant_user, request)
 
@@ -69,6 +70,21 @@ class AuthorizationCodeGrant(_AuthorizationCodeGrant):
 
     def authenticate_user(self, authorization_code):
         return User.query.get(authorization_code.user_id)
+
+    def save_authorization_code(self, code, request):
+        code_challenge = request.data.get('code_challenge')
+        code_challenge_method = request.data.get('code_challenge_method')
+        auth_code = OAuth2AuthorizationCode(
+            code=code,
+            client_id=request.client.client_id,
+            redirect_uri=request.redirect_uri,
+            scope=request.scope,
+            user_id=request.user.id,
+            code_challenge=code_challenge,
+            code_challenge_method=code_challenge_method,
+        )
+        auth_code.save()
+        return auth_code
 
 
 class OpenIDCode(_OpenIDCode):

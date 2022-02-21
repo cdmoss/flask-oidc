@@ -10,14 +10,6 @@ from .oauth2 import authorization, require_oauth, generate_user_info
 
 bp = Blueprint(__name__, 'home')
 
-
-def current_user():
-    if 'id' in session:
-        uid = session['id']
-        return User.query.get(uid)
-    return None
-
-
 @bp.route('/', methods=('GET', 'POST'))
 def home():
     if request.method == 'POST':
