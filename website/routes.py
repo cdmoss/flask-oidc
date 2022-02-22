@@ -50,7 +50,7 @@ def authorize():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        user = User.query.filter_by(username=username)
+        user = User.query.filter_by(username=username).first()
         if not check_password_hash(user.password, password) or not user:
             return render_template('login.html', error_message='Invalid username or password')        
         
