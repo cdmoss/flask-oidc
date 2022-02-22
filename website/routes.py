@@ -8,23 +8,10 @@ from .models import db, User, OAuth2Client
 from .oauth2 import authorization, require_oauth, generate_user_info
 
 
-bp = Blueprint(__name__, 'home')
-
-@bp.route('/login', methods=('GET', 'POST'))
-def home():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        user = User.query.filter_by(username=username)
-        if not check_password_hash(user.password, password) or not user:
-            return render_template('login.html', error_message='Invalid username or password')        
-        
-        return authorization.create_authorization_response(grant_user=user)
-
+bp = Blueprint('home', __name__)
 
 def split_by_crlf(s):
     return [v for v in s.splitlines() if v]
-
 
 @bp.route('/create_client', methods=('GET', 'POST'))
 def create_client():
@@ -58,24 +45,42 @@ def create_client():
     return redirect('/')
 
 
-@bp.route('/oauth/authorize', methods=['GET', 'POST'])
+@bp.route('/login', methods=['GET', 'POST'])
 def authorize():
-    user = current_user()
-    if request.method == 'GET':
-        try:
-            grant = authorization.validate_consent_request(end_user=user)
-        except OAuth2Error as error:
-            return jsonify(dict(error.get_body()))
-        return render_template('authorize.html', user=user, grant=grant)
-    if not user and 'username' in request.form:
+    if request.method == 'POST':
         username = request.form.get('username')
-        user = User.query.filter_by(username=username).first()
-    if request.form['confirm']:
-        grant_user = user
-    else:
-        grant_user = None
-    return authorization.create_authorization_response(grant_user=grant_user)
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username)
+        if not check_password_hash(user.password, password) or not user:
+            return render_template('login.html', error_message='Invalid username or password')        
+        
+        return authorization.create_authorization_response(grant_user=user)
+    return render_template('login.html')
 
+@bp.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        confirm_password = request.form.get('password')
+
+        if password != confirm_password:
+            return render_template('signup.html', error_message='Passwords do not match')
+
+        if not username or not password:
+            return render_template('signup.html', error_message='Username and password are required')
+
+        if User.query.filter_by(username=username).first():
+            return render_template('signup.html', error_message='User with that name already exists')
+
+        user = User(username=username, password=generate_password_hash(password))
+
+        db.session.add(user)
+        db.session.commit()
+
+        return render_template('register_success.html')
+
+    return render_template('signup.html')
 
 @bp.route('/oauth/token', methods=['POST'])
 def issue_token():
